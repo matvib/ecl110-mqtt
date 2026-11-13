@@ -200,9 +200,16 @@ if ! id -u "$SVC_USER" >/dev/null 2>&1; then
     useradd --system --no-create-home --shell "$nologin" "$SVC_USER"
     ok "Created system user '$SVC_USER'"
 fi
-# Serial devices are owned by dialout on Debian/Raspberry Pi OS
-if getent group dialout >/dev/null; then
-    usermod -aG dialout "$SVC_USER"
+# Grant serial access. Usually the device is group 'dialout', but some udev
+# setups (e.g. this Raspberry Pi) put USB serial under 'plugdev' instead, so
+# add the service user to whichever group actually owns the chosen port.
+for grp in dialout plugdev; do
+    getent group "$grp" >/dev/null && usermod -aG "$grp" "$SVC_USER"
+done
+dev_grp="$(stat -c '%G' "$(readlink -f "$SERIAL")" 2>/dev/null || true)"
+if [[ -n "$dev_grp" && "$dev_grp" != "dialout" && "$dev_grp" != "plugdev" ]]; then
+    getent group "$dev_grp" >/dev/null && usermod -aG "$dev_grp" "$SVC_USER"
+    info "Serial port is group '$dev_grp' - added $SVC_USER to it"
 fi
 
 install -d -m 755 "$APP_DIR"
