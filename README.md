@@ -5,7 +5,7 @@ A lightweight Python service that bridges a Danfoss ECL Comfort 110 controller (
 ## Features
 * **Home Assistant Auto-Discovery:** Instantly creates a device and sensors in HA without manual YAML configuration.
 * **Real-Time Monitoring:** Reads Outdoor, Room, Flow, and Return temperatures, pump status, operating state and heating-curve config.
-* **Two-Way Control:** Mode (`select`), Room Setpoint (`number`, 15–25 °C, whole degrees) and heating-curve Slope (`number`, 0.2–10.0, 0.1 steps) are writable from Home Assistant.
+* **Two-Way Control:** Mode (`select`), Room Setpoint (`number`, 15–25 °C, whole degrees) and heating-curve Slope (`number`, 0.1–4.0, 0.1 steps) are writable from Home Assistant.
 * **Robust Reconnection:** Handles Modbus read failures and MQTT drops gracefully.
 * **One-Command Install:** `setup.sh` asks for serial port, MQTT broker and base topic, then installs a hardened systemd service.
 

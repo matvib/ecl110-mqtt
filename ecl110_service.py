@@ -77,9 +77,9 @@ ROOM_SETPOINT = ("Room Setpoint", 11229, "°C", 0.1, (15.0, 25.0))
 ROOM_SETPOINT_STEP = 1  # integer only — panel doesn't accept half-degrees reliably
 
 # Heating curve slope — writable via HA number entity.
-# Register stores slope*10 (raw 12 = 1.2). Range/step below are the documented
-# ECL Comfort 110 values; confirm against your panel and adjust if it differs.
-SLOPE       = ("Slope", 11175, None, 0.1, (0.2, 10.0))
+# Register stores slope*10 (raw 12 = 1.2). Range/step confirmed on the panel:
+# 0.1 to 4.0 in 0.1 steps.
+SLOPE       = ("Slope", 11175, None, 0.1, (0.1, 4.0))
 SLOPE_STEP  = 0.1
 
 # Accumulated outdoor — when reached → summer cutoff
