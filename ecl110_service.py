@@ -72,9 +72,12 @@ TEMPS = {
     "s4_return":  ("S4 Return",  11204, "°C", 0.1, (  0.0, 100.0)),
 }
 
-# Room setpoint — writable via HA number entity (15..25, integer only)
-ROOM_SETPOINT = ("Room Setpoint", 11229, "°C", 0.1, (15.0, 25.0))
-ROOM_SETPOINT_STEP = 1  # integer only — panel doesn't accept half-degrees reliably
+# Room setpoint — writable via HA number entity (15..25, integer only).
+# PNU 11180 (Modbus 11179, "desired room temperature") stores whole degrees
+# at scale 1.0 (raw 21 = 21 °C), NOT the ×10 readout register 11229. Confirmed
+# writable in AUTO. This is why the panel never accepted half-degrees.
+ROOM_SETPOINT = ("Room Setpoint", 11180, "°C", 1.0, (15.0, 25.0))
+ROOM_SETPOINT_STEP = 1  # register is integer degrees
 
 # Heating curve slope — writable via HA number entity.
 # Register stores slope*10 (raw 12 = 1.2). Range/step confirmed on the panel:
@@ -141,9 +144,9 @@ LEGACY_DISCOVERY_TOPICS = [
     # superseded by select/number entities:
     f"{DISCOVERY_PREFIX}/sensor/{NODE_ID}/mode/config",
     f"{DISCOVERY_PREFIX}/sensor/{NODE_ID}/slope/config",
-    # room setpoint reverted to a read-only sensor: drop the writable number
-    # (PNU 11229 is a read-only readout and rejects writes — exception 4).
-    f"{DISCOVERY_PREFIX}/number/{NODE_ID}/room_setpoint/config",
+    # room setpoint is writable again (PNU 11180): drop the read-only sensor
+    # that the previous revert published.
+    f"{DISCOVERY_PREFIX}/sensor/{NODE_ID}/room_setpoint/config",
 ]
 
 # ---------- Globals ----------
@@ -329,11 +332,8 @@ def publish_discovery(cli):
     # Accumulated outdoor (filtered)
     _publish_temp_sensor(cli, "acc_outdoor", ACC_OUTDOOR[0], ACC_OUTDOOR[2])
 
-    # Room setpoint — read-only sensor for now (PNU 11229 rejects writes;
-    # the real writable register is still TBD).
-    _publish_temp_sensor(cli, "room_setpoint", ROOM_SETPOINT[0], ROOM_SETPOINT[2])
-
-    # Writable: slope (number) and mode (select)
+    # Writable: room setpoint (number), slope (number) and mode (select)
+    _publish_setpoint_number(cli)
     _publish_slope_number(cli)
     _publish_mode_select(cli)
 
@@ -478,14 +478,13 @@ def handle_setpoint_cmd(cli, mod, payload):
     if not (lo <= val <= hi):
         log.warning(f"Setpoint {val} outside allowed range {lo}..{hi}")
         return False
-    # Force integer degrees — the panel doesn't accept 21.5 reliably,
-    # so we round here even if HA/MQTT sent a fractional value.
+    # Register is integer degrees (scale 1.0), so round and write the degrees
+    # directly — no ×10. The panel can't hold half-degrees anyway.
     val_int = int(round(val))
     if val_int != val:
         log.info(f"Setpoint {val} rounded to {val_int} (integer-only)")
-    raw = val_int * 10
-    if write_one(mod, ROOM_SETPOINT[1], raw):
-        log.info(f"Setpoint → {val_int}°C (raw={raw})")
+    if write_one(mod, ROOM_SETPOINT[1], val_int):
+        log.info(f"Setpoint → {val_int}°C (raw={val_int})")
         return True
     return False
 
@@ -517,6 +516,8 @@ def attach_command_handlers(cli, mod):
         changed = False
         if msg.topic == CMD_MODE:
             changed = handle_mode_cmd(cli, mod, payload)
+        elif msg.topic == CMD_ROOM:
+            changed = handle_setpoint_cmd(cli, mod, payload)
         elif msg.topic == CMD_SLOPE:
             changed = handle_slope_cmd(cli, mod, payload)
         elif msg.topic == CMD_REFR:
@@ -528,10 +529,7 @@ def attach_command_handlers(cli, mod):
             publish_snapshot(cli, mod)
 
     cli.on_message = on_message
-    # CMD_ROOM intentionally not subscribed: room setpoint is read-only until
-    # the correct writable register is identified. handle_setpoint_cmd and
-    # _publish_setpoint_number are kept for easy restore.
-    for t in (CMD_MODE, CMD_SLOPE, CMD_REFR):
+    for t in (CMD_MODE, CMD_ROOM, CMD_SLOPE, CMD_REFR):
         cli.subscribe(t)
         log.info(f"Subscribed '{t}'")
 
