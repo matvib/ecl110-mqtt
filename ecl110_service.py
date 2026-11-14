@@ -100,6 +100,12 @@ OP_STATE      = ("State", 4211)
 # Pump status 1/0 (4002, wire 4001)
 PUMP          = ("Pump", 4002)
 
+# "Based on" — heating control reference (PNU 11020, Modbus 11019). Read-only
+# display: which sensor the control optimizes on. Mapping assumed (0 reads while
+# the system steers on outdoor); confirm the panel's wording and adjust.
+BASED_ON      = ("Based On", 11020)
+BASED_ON_MAP  = {0: "Outdoor", 1: "Room"}
+
 # Config parameters — slow-changing, but cheap enough to refresh every snapshot.
 # (Slope lives in SLOPE above; it is now a writable number, not a read-only sensor.)
 CONFIG = {
@@ -129,6 +135,7 @@ ICONS = {
     "state":          "mdi:theme-light-dark",
     "pump":           "mdi:pump",
     "summer_standby": "mdi:white-balance-sunny",
+    "based_on":       "mdi:tune-variant",
 }
 
 # Discovery topics for entities we used to publish but no longer do
@@ -166,6 +173,11 @@ def s16(v):
     if v is None:
         return None
     return v - 65536 if v >= 32768 else v
+
+def decode_based_on(raw):
+    if raw is None:
+        return "unknown"
+    return BASED_ON_MAP.get(raw, str(raw))
 
 def decode_pump_status(raw):
     if raw is None:
@@ -341,6 +353,7 @@ def publish_discovery(cli):
     _publish_text_sensor(cli, "state", "State", STATE_T("state"))
     _publish_text_sensor(cli, "pump", "Pump Status", STATE_T("pump"))
     _publish_text_sensor(cli, "summer_standby", "Summer Standby", STATE_T("summer_standby"))
+    _publish_text_sensor(cli, "based_on", "Based On", STATE_T("based_on"))
 
     # Curve config (read-only)
     for key, (name, _pnu, _scale, unit) in CONFIG.items():
@@ -422,6 +435,11 @@ def publish_snapshot(cli, mod):
     raw_pump = read_one(mod, pnu)
     pump_str = decode_pump_status(raw_pump)
     cli.publish(STATE_T("pump"), pump_str, qos=0, retain=True)
+
+    # 6b. Based-on reference (read-only display)
+    _name, pnu = BASED_ON
+    based_on_str = decode_based_on(read_one(mod, pnu))
+    cli.publish(STATE_T("based_on"), based_on_str, qos=0, retain=True)
 
     # 7. Slope (writable number) — read and publish like the setpoint
     _name, pnu, _unit, scale, _range = SLOPE
