@@ -140,8 +140,10 @@ LEGACY_DISCOVERY_TOPICS = [
     f"{DISCOVERY_PREFIX}/binary_sensor/{NODE_ID}/operating_state/config",
     # superseded by select/number entities:
     f"{DISCOVERY_PREFIX}/sensor/{NODE_ID}/mode/config",
-    f"{DISCOVERY_PREFIX}/sensor/{NODE_ID}/room_setpoint/config",
     f"{DISCOVERY_PREFIX}/sensor/{NODE_ID}/slope/config",
+    # room setpoint reverted to a read-only sensor: drop the writable number
+    # (PNU 11229 is a read-only readout and rejects writes — exception 4).
+    f"{DISCOVERY_PREFIX}/number/{NODE_ID}/room_setpoint/config",
 ]
 
 # ---------- Globals ----------
@@ -327,8 +329,11 @@ def publish_discovery(cli):
     # Accumulated outdoor (filtered)
     _publish_temp_sensor(cli, "acc_outdoor", ACC_OUTDOOR[0], ACC_OUTDOOR[2])
 
-    # Writable: room setpoint (number), slope (number) and mode (select)
-    _publish_setpoint_number(cli)
+    # Room setpoint — read-only sensor for now (PNU 11229 rejects writes;
+    # the real writable register is still TBD).
+    _publish_temp_sensor(cli, "room_setpoint", ROOM_SETPOINT[0], ROOM_SETPOINT[2])
+
+    # Writable: slope (number) and mode (select)
     _publish_slope_number(cli)
     _publish_mode_select(cli)
 
@@ -512,8 +517,6 @@ def attach_command_handlers(cli, mod):
         changed = False
         if msg.topic == CMD_MODE:
             changed = handle_mode_cmd(cli, mod, payload)
-        elif msg.topic == CMD_ROOM:
-            changed = handle_setpoint_cmd(cli, mod, payload)
         elif msg.topic == CMD_SLOPE:
             changed = handle_slope_cmd(cli, mod, payload)
         elif msg.topic == CMD_REFR:
@@ -525,7 +528,10 @@ def attach_command_handlers(cli, mod):
             publish_snapshot(cli, mod)
 
     cli.on_message = on_message
-    for t in (CMD_MODE, CMD_ROOM, CMD_SLOPE, CMD_REFR):
+    # CMD_ROOM intentionally not subscribed: room setpoint is read-only until
+    # the correct writable register is identified. handle_setpoint_cmd and
+    # _publish_setpoint_number are kept for easy restore.
+    for t in (CMD_MODE, CMD_SLOPE, CMD_REFR):
         cli.subscribe(t)
         log.info(f"Subscribed '{t}'")
 
