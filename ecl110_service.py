@@ -76,6 +76,12 @@ TEMPS = {
 ROOM_SETPOINT = ("Room Setpoint", 11229, "°C", 0.1, (15.0, 25.0))
 ROOM_SETPOINT_STEP = 1  # integer only — panel doesn't accept half-degrees reliably
 
+# Heating curve slope — writable via HA number entity.
+# Register stores slope*10 (raw 12 = 1.2). Range/step below are the documented
+# ECL Comfort 110 values; confirm against your panel and adjust if it differs.
+SLOPE       = ("Slope", 11175, None, 0.1, (0.2, 10.0))
+SLOPE_STEP  = 0.1
+
 # Accumulated outdoor — when reached → summer cutoff
 ACC_OUTDOOR   = ("Accumulated Outdoor", 11100, "°C", 0.1, (-50.0, 60.0))
 
@@ -91,9 +97,9 @@ OP_STATE      = ("State", 4211)
 # Pump status 1/0 (4002, wire 4001)
 PUMP          = ("Pump", 4002)
 
-# Config parameters — slow-changing, but cheap enough to refresh every snapshot
+# Config parameters — slow-changing, but cheap enough to refresh every snapshot.
+# (Slope lives in SLOPE above; it is now a writable number, not a read-only sensor.)
 CONFIG = {
-    "slope":    ("Slope",           11175, 0.1, None),
     "cut_out":  ("Heating Cut-out", 11179, 1.0, "°C"),
 }
 
@@ -103,6 +109,7 @@ STATE_T   = lambda key: f"{NODE_ID}/sensor/{key}/state"
 MODE_T    = f"{NODE_ID}/sensor/mode/state"  # state topic shared with select entity
 CMD_MODE  = f"{NODE_ID}/cmd/mode"
 CMD_ROOM  = f"{NODE_ID}/cmd/room_setpoint"
+CMD_SLOPE = f"{NODE_ID}/cmd/slope"
 CMD_REFR  = f"{NODE_ID}/cmd/refresh"
 
 # Icon mapping
@@ -134,6 +141,7 @@ LEGACY_DISCOVERY_TOPICS = [
     # superseded by select/number entities:
     f"{DISCOVERY_PREFIX}/sensor/{NODE_ID}/mode/config",
     f"{DISCOVERY_PREFIX}/sensor/{NODE_ID}/room_setpoint/config",
+    f"{DISCOVERY_PREFIX}/sensor/{NODE_ID}/slope/config",
 ]
 
 # ---------- Globals ----------
@@ -289,6 +297,24 @@ def _publish_setpoint_number(cli):
     }
     cli.publish(cfg_t, json.dumps(cfg), qos=1, retain=True)
 
+def _publish_slope_number(cli):
+    lo, hi = SLOPE[4]
+    cfg_t = f"{DISCOVERY_PREFIX}/number/{NODE_ID}/slope/config"
+    cfg = {
+        "name": "Slope",
+        "uniq_id": f"{NODE_ID}_slope",
+        "stat_t": STATE_T("slope"),
+        "cmd_t": CMD_SLOPE,
+        "avty_t": AVAIL_T,
+        "dev": _device_dict(),
+        "min": lo,
+        "max": hi,
+        "step": SLOPE_STEP,
+        "mode": "box",
+        "icon": ICONS["slope"],
+    }
+    cli.publish(cfg_t, json.dumps(cfg), qos=1, retain=True)
+
 def publish_discovery(cli):
     # Tell HA to forget renamed/removed/superseded entities first
     for t in LEGACY_DISCOVERY_TOPICS:
@@ -301,8 +327,9 @@ def publish_discovery(cli):
     # Accumulated outdoor (filtered)
     _publish_temp_sensor(cli, "acc_outdoor", ACC_OUTDOOR[0], ACC_OUTDOOR[2])
 
-    # Writable: room setpoint (number) and mode (select)
+    # Writable: room setpoint (number), slope (number) and mode (select)
     _publish_setpoint_number(cli)
+    _publish_slope_number(cli)
     _publish_mode_select(cli)
 
     # Read-only status
@@ -391,7 +418,13 @@ def publish_snapshot(cli, mod):
     pump_str = decode_pump_status(raw_pump)
     cli.publish(STATE_T("pump"), pump_str, qos=0, retain=True)
 
-    # 7. Config (slope, cut_out)
+    # 7. Slope (writable number) — read and publish like the setpoint
+    _name, pnu, _unit, scale, _range = SLOPE
+    raw_slope = read_one(mod, pnu)
+    slope_val = decode_config(raw_slope, scale)
+    cli.publish(STATE_T("slope"), slope_val, qos=0, retain=True)
+
+    # 8. Config (cut_out)
     config_values = {}
     for key, (_name, pnu, scale, _unit) in CONFIG.items():
         raw = read_one(mod, pnu)
@@ -399,7 +432,7 @@ def publish_snapshot(cli, mod):
         cli.publish(STATE_T(key), out, qos=0, retain=True)
         config_values[key] = out
 
-    # 8. Derived: summer standby = (acc_outdoor >= cut_out)
+    # 9. Derived: summer standby = (acc_outdoor >= cut_out)
     summer = "unknown"
     try:
         acc_f = float(acc_val)
@@ -409,12 +442,12 @@ def publish_snapshot(cli, mod):
         summer = "unknown"
     cli.publish(STATE_T("summer_standby"), summer, qos=0, retain=True)
 
-    # 9. Single log line
+    # 10. Single log line
     temps_joined = "/".join(temp_results)
     log.info(
         f"Snapshot: {temps_joined} | SP:{sp_val} acc:{acc_val} | "
         f"mode:{mode_str} state:{state_str} | pump:{pump_str} | "
-        f"slope={config_values.get('slope')} cut={config_values.get('cut_out')} | "
+        f"slope={slope_val} cut={config_values.get('cut_out')} | "
         f"summer={summer}"
     )
 
@@ -451,6 +484,26 @@ def handle_setpoint_cmd(cli, mod, payload):
         return True
     return False
 
+def handle_slope_cmd(cli, mod, payload):
+    try:
+        val = float(payload.strip())
+    except ValueError:
+        log.warning(f"Slope '{payload}' is not a number")
+        return False
+    lo, hi = SLOPE[4]
+    if not (lo <= val <= hi):
+        log.warning(f"Slope {val} outside allowed range {lo}..{hi}")
+        return False
+    # Snap to the 0.1 register resolution (raw = slope * 10).
+    raw = int(round(val * 10))
+    snapped = raw / 10
+    if snapped != val:
+        log.info(f"Slope {val} snapped to {snapped} (0.1 resolution)")
+    if write_one(mod, SLOPE[1], raw):
+        log.info(f"Slope → {snapped} (raw={raw})")
+        return True
+    return False
+
 def attach_command_handlers(cli, mod):
     def on_message(_cli, _ud, msg):
         payload = msg.payload.decode().strip()
@@ -461,6 +514,8 @@ def attach_command_handlers(cli, mod):
             changed = handle_mode_cmd(cli, mod, payload)
         elif msg.topic == CMD_ROOM:
             changed = handle_setpoint_cmd(cli, mod, payload)
+        elif msg.topic == CMD_SLOPE:
+            changed = handle_slope_cmd(cli, mod, payload)
         elif msg.topic == CMD_REFR:
             changed = True  # force a snapshot
         else:
@@ -470,7 +525,7 @@ def attach_command_handlers(cli, mod):
             publish_snapshot(cli, mod)
 
     cli.on_message = on_message
-    for t in (CMD_MODE, CMD_ROOM, CMD_REFR):
+    for t in (CMD_MODE, CMD_ROOM, CMD_SLOPE, CMD_REFR):
         cli.subscribe(t)
         log.info(f"Subscribed '{t}'")
 
