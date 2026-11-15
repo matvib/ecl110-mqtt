@@ -1,4 +1,4 @@
-# ECL110 MQTT Bridge
+# ECL110 MQTT
 
 A lightweight Python service that bridges a Danfoss ECL Comfort 110 controller (via Modbus RTU) to Home Assistant using MQTT Auto-Discovery.
 
@@ -27,8 +27,8 @@ A lightweight Python service that bridges a Danfoss ECL Comfort 110 controller (
 ## Installation
 
 ```bash
-git clone https://github.com/matvib/ecl110-mqtt-bridge.git
-cd ecl110-mqtt-bridge
+git clone https://github.com/matvib/ecl110-mqtt.git
+cd ecl110-mqtt
 sudo ./setup.sh
 ```
 
@@ -40,15 +40,15 @@ The installer asks for:
 | MQTT | broker host, port, username, password | `localhost:1883`, anonymous |
 | Home Assistant | base topic, device name, discovery prefix, poll interval, log level | `ecl110`, `ECL110`, `homeassistant`, `60` s, `INFO` |
 
-It then creates a system user `ecl110` (added to the serial port's group — `dialout`, or `plugdev` on setups that use it — for port access), installs the program and a venv to `/opt/ecl110-mqtt-bridge`, writes `/etc/ecl110-mqtt-bridge/config.json`, and starts the `ecl110-mqtt-bridge` systemd service. Re-running `sudo ./setup.sh` offers the current settings as defaults.
+It then creates a system user `ecl110` (added to the serial port's group — `dialout`, or `plugdev` on setups that use it — for port access), installs the program and a venv to `/opt/ecl110-mqtt`, writes `/etc/ecl110-mqtt/config.json`, and starts the `ecl110-mqtt` systemd service. Re-running `sudo ./setup.sh` offers the current settings as defaults.
 
 The **base topic** prefixes every MQTT topic (`<base>/status`, `<base>/sensor/<key>/state`, `<base>/cmd/{mode,room_setpoint,slope,refresh}`) and doubles as the HA device identifier, so give each controller its own if you run more than one bridge.
 
 Useful commands:
 
 ```bash
-journalctl -u ecl110-mqtt-bridge -f       # follow the log
-sudo nano /etc/ecl110-mqtt-bridge/config.json && sudo systemctl restart ecl110-mqtt-bridge
+journalctl -u ecl110-mqtt -f       # follow the log
+sudo nano /etc/ecl110-mqtt/config.json && sudo systemctl restart ecl110-mqtt
 sudo ./uninstall.sh                        # remove the service (asks before deleting config)
 ```
 
@@ -61,7 +61,7 @@ For development you can skip the installer: environment variables (or a `.env` f
 ./deploy.sh
 ```
 
-To poll automatically, add a systemd timer that runs `deploy.sh` every few minutes (`ecl110-deploy.service` + `ecl110-deploy.timer` with `OnUnitActiveSec=5min`). `deploy.sh` needs passwordless sudo for that; `echo "$USER ALL=(root) NOPASSWD: /home/$USER/ecl110-mqtt-bridge/setup.sh -y" | sudo tee /etc/sudoers.d/ecl110-deploy` (adjust the path).
+To poll automatically, add a systemd timer that runs `deploy.sh` every few minutes (`ecl110-deploy.service` + `ecl110-deploy.timer` with `OnUnitActiveSec=5min`). `deploy.sh` needs passwordless sudo for that; `echo "$USER ALL=(root) NOPASSWD: /home/$USER/ecl110-mqtt/setup.sh -y" | sudo tee /etc/sudoers.d/ecl110-deploy` (adjust the path).
 
 ## Current Status
 Verified on hardware (ECL Comfort 110, App 130, FW 1.08):

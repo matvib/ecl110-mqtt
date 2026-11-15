@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 # Precedence: environment variable > config.json > built-in default.
 # setup.sh writes config.json; env vars / .env are handy for development.
 load_dotenv()
-CONFIG_FILE = os.getenv("ECL110_CONFIG", "/etc/ecl110-mqtt-bridge/config.json")
+CONFIG_FILE = os.getenv("ECL110_CONFIG", "/etc/ecl110-mqtt/config.json")
 
 def _load_config_file():
     try:

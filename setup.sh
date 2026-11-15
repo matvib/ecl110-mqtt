@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ecl110-mqtt-bridge installer
+# ecl110-mqtt installer
 #
 # Asks a few questions, writes the config, installs a systemd service and
 # starts it. Safe to re-run: existing settings are offered as defaults.
@@ -9,7 +9,7 @@
 #                          the program and restart (used by deploy.sh)
 set -euo pipefail
 
-APP_NAME="ecl110-mqtt-bridge"
+APP_NAME="ecl110-mqtt"
 APP_DIR="/opt/$APP_NAME"
 VENV_DIR="$APP_DIR/venv"
 CONF_DIR="/etc/$APP_NAME"
@@ -39,7 +39,7 @@ die()  { echo "${C_RED}${C_BOLD}error:${C_RESET}${C_RED} $*${C_RESET}" >&2; exit
 banner() {
     echo
     echo "${C_BOLD}${C_BLUE}  ┌──────────────────────────────────────────────┐${C_RESET}"
-    echo "${C_BOLD}${C_BLUE}  │${C_RESET}${C_BOLD}  ecl110-mqtt-bridge                          ${C_BLUE}│${C_RESET}"
+    echo "${C_BOLD}${C_BLUE}  │${C_RESET}${C_BOLD}  ecl110-mqtt                                 ${C_BLUE}│${C_RESET}"
     echo "${C_BOLD}${C_BLUE}  │${C_RESET}  Danfoss ECL Comfort 110 -> Home Assistant   ${C_BOLD}${C_BLUE}│${C_RESET}"
     echo "${C_BOLD}${C_BLUE}  └──────────────────────────────────────────────┘${C_RESET}"
 }
@@ -261,7 +261,7 @@ ok "Config written to $CONF_FILE"
 
 cat > "$UNIT_FILE" <<UNIT
 [Unit]
-Description=ecl110-mqtt-bridge - Danfoss ECL Comfort 110 Modbus to MQTT
+Description=ecl110-mqtt - Danfoss ECL Comfort 110 Modbus to MQTT
 After=network-online.target mosquitto.service
 Wants=network-online.target
 

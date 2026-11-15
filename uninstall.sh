@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Removes the ecl110-mqtt-bridge service. Asks before deleting the config.
+# Removes the ecl110-mqtt service. Asks before deleting the config.
 set -euo pipefail
 
-APP_NAME="ecl110-mqtt-bridge"
+APP_NAME="ecl110-mqtt"
 APP_DIR="/opt/$APP_NAME"
 CONF_DIR="/etc/$APP_NAME"
 UNIT_FILE="/etc/systemd/system/$APP_NAME.service"
