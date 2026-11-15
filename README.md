@@ -2,6 +2,9 @@
 
 A lightweight Python service that bridges a Danfoss ECL Comfort 110 controller (via Modbus RTU) to Home Assistant using MQTT Auto-Discovery.
 
+![Home Assistant dashboard for the ECL110](images/ha-dashboard.png)
+*The ECL110 device in Home Assistant — Mode, Room Setpoint and Slope are writable; temperatures, pump, state and Based On are read-only.*
+
 ## Features
 * **Home Assistant Auto-Discovery:** Instantly creates a device and sensors in HA without manual YAML configuration.
 * **Real-Time Monitoring:** Reads Outdoor, Room, Flow, and Return temperatures, accumulated outdoor, pump status, operating state, heating cut-out, summer standby and the control reference (Based On: Outdoor/Room).
@@ -13,6 +16,13 @@ A lightweight Python service that bridges a Danfoss ECL Comfort 110 controller (
 * Danfoss ECL Comfort 110 (Tested on FW 1.08)
 * USB to RS485 Adapter 
 * A machine to run the script 
+
+### Wiring
+![USB-RS485 adapter wired to the ECL110 terminals](images/wiring.jpg)
+*Adapter to ECL110: A/D+ → terminal `__`, B/D− → terminal `__`, GND → terminal `__`. (Fill in your terminal numbers.)*
+
+![Danfoss ECL Comfort 110 controller](images/controller.jpg)
+*ECL Comfort 110, App 130, FW 1.08.*
 
 ## Installation
 
