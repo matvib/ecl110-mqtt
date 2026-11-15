@@ -4,7 +4,7 @@ A lightweight Python service that bridges a Danfoss ECL Comfort 110 controller (
 
 ## Features
 * **Home Assistant Auto-Discovery:** Instantly creates a device and sensors in HA without manual YAML configuration.
-* **Real-Time Monitoring:** Reads Outdoor, Room, Flow, and Return temperatures, pump status, operating state and heating-curve config.
+* **Real-Time Monitoring:** Reads Outdoor, Room, Flow, and Return temperatures, accumulated outdoor, pump status, operating state, heating cut-out, summer standby and the control reference (Based On: Outdoor/Room).
 * **Two-Way Control:** Mode (`select`), Room Setpoint (`number`, 15–25 °C, whole degrees) and heating-curve Slope (`number`, 0.1–4.0, 0.1 steps) are writable from Home Assistant.
 * **Robust Reconnection:** Handles Modbus read failures and MQTT drops gracefully.
 * **One-Command Install:** `setup.sh` asks for serial port, MQTT broker and base topic, then installs a hardened systemd service.
@@ -30,7 +30,7 @@ The installer asks for:
 | MQTT | broker host, port, username, password | `localhost:1883`, anonymous |
 | Home Assistant | base topic, device name, discovery prefix, poll interval, log level | `ecl110`, `ECL110`, `homeassistant`, `60` s, `INFO` |
 
-It then creates a system user `ecl110` (in `dialout` for serial access), installs the program and a venv to `/opt/ecl110-mqtt-bridge`, writes `/etc/ecl110-mqtt-bridge/config.json`, and starts the `ecl110-mqtt-bridge` systemd service. Re-running `sudo ./setup.sh` offers the current settings as defaults.
+It then creates a system user `ecl110` (added to the serial port's group — `dialout`, or `plugdev` on setups that use it — for port access), installs the program and a venv to `/opt/ecl110-mqtt-bridge`, writes `/etc/ecl110-mqtt-bridge/config.json`, and starts the `ecl110-mqtt-bridge` systemd service. Re-running `sudo ./setup.sh` offers the current settings as defaults.
 
 The **base topic** prefixes every MQTT topic (`<base>/status`, `<base>/sensor/<key>/state`, `<base>/cmd/{mode,room_setpoint,slope,refresh}`) and doubles as the HA device identifier, so give each controller its own if you run more than one bridge.
 
@@ -54,9 +54,19 @@ For development you can skip the installer: environment variables (or a `.env` f
 To poll automatically, add a systemd timer that runs `deploy.sh` every few minutes (`ecl110-deploy.service` + `ecl110-deploy.timer` with `OnUnitActiveSec=5min`). `deploy.sh` needs passwordless sudo for that; `echo "$USER ALL=(root) NOPASSWD: /home/$USER/ecl110-mqtt-bridge/setup.sh -y" | sudo tee /etc/sudoers.d/ecl110-deploy` (adjust the path).
 
 ## Current Status
-* [x] Read temperatures and mode (Working)
-* [x] MQTT Discovery (Working)
-* [x] Two-way control (Write Setpoint/Mode) - *Testing*
+Verified on hardware (ECL Comfort 110, App 130, FW 1.08):
+
+* [x] MQTT auto-discovery and availability
+* [x] Monitoring: S1–S4 temps, accumulated outdoor, pump, state, heating cut-out, summer standby, Based On
+* [x] Write Mode (`select`) — all five modes confirmed
+* [x] Write Room Setpoint (`number`, integer °C, PNU 11180)
+* [x] Write heating-curve Slope (`number`, 0.1–4.0)
+* [x] `setup.sh` installer and `deploy.sh` GitHub updates
+
+### Register notes
+* Room setpoint is written to **PNU 11180** (Modbus 11179, "desired room temperature"), integer degrees — **not** the ×10 readout at 11229, which is read-only and rejects writes (Modbus exception 4).
+* Heating-curve slope is **PNU 11175** (Modbus 11174).
+* Ingramz's register numbers are raw Modbus addresses; this code's PNUs are `address + 1`.
 
 ## Acknowledgments
 A massive thank you to [Ingramz/ecl110](https://github.com/Ingramz/ecl110) for documenting the Modbus registers (PNUs) for this controller. Their register map made the read/write logic of this bridge possible!

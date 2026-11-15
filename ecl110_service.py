@@ -101,8 +101,7 @@ OP_STATE      = ("State", 4211)
 PUMP          = ("Pump", 4002)
 
 # "Based on" — heating control reference (PNU 11020, Modbus 11019). Read-only
-# display: which sensor the control optimizes on. Mapping assumed (0 reads while
-# the system steers on outdoor); confirm the panel's wording and adjust.
+# display: which sensor the control optimizes on. Mapping verified on the panel.
 BASED_ON      = ("Based On", 11020)
 BASED_ON_MAP  = {0: "Outdoor", 1: "Room"}
 
@@ -469,7 +468,7 @@ def publish_snapshot(cli, mod):
     temps_joined = "/".join(temp_results)
     log.info(
         f"Snapshot: {temps_joined} | SP:{sp_val} acc:{acc_val} | "
-        f"mode:{mode_str} state:{state_str} | pump:{pump_str} | "
+        f"mode:{mode_str} state:{state_str} | pump:{pump_str} based:{based_on_str} | "
         f"slope={slope_val} cut={config_values.get('cut_out')} | "
         f"summer={summer}"
     )
