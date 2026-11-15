@@ -19,7 +19,7 @@ A lightweight Python service that bridges a Danfoss ECL Comfort 110 controller (
 
 ### Wiring
 ![USB-RS485 adapter wired to the ECL110 terminals](images/wiring.jpg)
-*Adapter to ECL110: A/D+ → terminal `__`, B/D− → terminal `__`, GND → terminal `__`. (Fill in your terminal numbers.)*
+*RS-485 (Modbus RTU, 19200 8E1) on the ECL110's **Wieland DST85/4** connector. Pinout (front view): pin 1 = GND, pin 2 = D−/B, pin 3 = D+/A, pin 4 = +5 V. Wire the adapter **A/D+ → pin 3**, **B/D− → pin 2**, **GND → pin 1**; leave pin 4 unconnected (its +5 V rating is unconfirmed). Pinout per [Ingramz/ecl110](https://github.com/Ingramz/ecl110) — verify against your board before wiring.*
 
 ![Danfoss ECL Comfort 110 controller](images/controller.jpg)
 *ECL Comfort 110, App 130, FW 1.08.*
